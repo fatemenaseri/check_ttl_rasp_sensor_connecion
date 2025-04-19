@@ -1,0 +1,37 @@
+#thix code ensures that ttl can read and write properly, the 0x56 hex number is being sent to be read 
+#repeatedly, if it can read it it shows the hex number  using .hex() in the raspberry terminal
+#thats how we ensure the number is being read, if it could not read it print the number 05 
+
+
+
+import serial
+import time
+
+SERIAL_PORT = '/dev/ttyUSB0'
+BAUD_RATE = 9600
+
+try:
+    ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
+    ser.parity = serial.PARITY_NONE
+    ser.stopbits = serial.STOPBITS_ONE
+    ser.bytesize = serial.EIGHTBITS
+    ser.xonxoff = 0
+    ser.rtscts = 0
+    ser.dsrdtr = 0
+
+    if ser.is_open:
+        ser.write(bytes([0x56]))
+        time.sleep(0.1)
+
+        while True:
+            if ser.in_waiting > 0:
+                response = ser.read(ser.in_waiting)
+                print(response.hex())
+                ser.write(response)
+                print("Sending back:", response.hex(), "| Type:", type(response))
+
+except:
+    try:
+        ser.write(bytes([0x05]))
+    except:
+        pass
