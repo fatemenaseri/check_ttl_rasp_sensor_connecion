@@ -1,0 +1,64 @@
+#in this code based on uart connection , just once read the distance and closes the port by ser.close(), any time you need to read the distance it 
+#open then close the port
+import serial
+import time
+import sys
+
+BAUD_RATE = 9600
+
+try:
+    ser = serial.Serial('/dev/ttyUSB0', BAUD_RATE, timeout=1)
+    ser.parity = serial.PARITY_NONE
+    ser.stopbits = serial.STOPBITS_ONE
+    ser.bytesize = serial.EIGHTBITS
+    time.sleep(2)  # Wait for connection to settle
+except serial.SerialException as e:
+    print(f"Failed to open serial port: {e}")
+    sys.exit(1)
+
+if not ser.is_open:
+    try:
+        ser.open()
+        print("Opened the port.")
+    except serial.SerialException:
+        print("Cannot open the port.")
+        sys.exit(1)
+else:
+    print("Port is already open.")
+
+def send_command():
+    packet = bytes([0xA5, 0x56, 0x01, (0xA5 + 0x56 + 0x01) & 0xFF])
+    ser.write(packet)
+    print("Command sent.")
+
+
+try:
+    send_command()
+    time.sleep(0.3)  # Give it a bit of time to respond
+
+    if ser.in_waiting >= 7:
+        response_buffer = ser.read(7)
+        print("Received response:", response_buffer.hex())
+
+        if response_buffer[0] == 0x5A:
+            checksum = sum(response_buffer[0:6]) & 0xFF
+            if checksum == response_buffer[6]:
+                distance = (response_buffer[4] << 8) | response_buffer[5]
+                print(f"Received Distance: {distance} mm")
+            else:
+                print("Checksum error.")
+        else:
+            print("Invalid header received.")
+    else:
+        print("No data received or not enough bytes.")
+
+except KeyboardInterrupt:
+    print("Interrupted by user.")
+except OSError as e:
+    print(f"OSError occurred while reading from port: {e}")
+except serial.SerialException as e:
+    print(f"SerialException occurred: {e}")
+finally:
+    if ser.is_open:
+        ser.close()
+        print("Serial port closed.")
